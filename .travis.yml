@@ -1,5 +1,11 @@
 language: cpp
 
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "Ppl6Px8VlO7jLjYamQcWhRDBxVMWPvSUSYb/Ldw5Dy6LNs57+brjvargdzceOfcVbq/+tLETrMctONKFz6EIKkwhKEYUuZI8l2ZZbzrhDifuEcG1qblngyB1gS9bwUpg/XM3Du6xULBDCymA/jGjeDy6kmEQVYgz60IVlklPShuj2M3y2nt+nrKwWqA0oCDlQ4N2F2DAPPOEaiqmtrDbzw1550TRPgl0QrN1LeGyuEXnVuww5BJRIIJxdllZKggHiP3uOMmtwb6obqFBL9EoI96qCvZOL2kIkPs1GUOY8wi+n+tGU58+pD+fEN5L58WpPC10Me3hTQu6OeQbuLbm3mFEzfFR6Ox5bMm2gQsqd0mJc4gMI3leRWIKWA+cMrq4vd9f5d0FA3wC7M3ghkCG4lPhhO82pzQbgP983rlb0cOBh17JXpsHmK/w9QL3C5wp9oYWETSzlBGlrFyaEhmwzplD0qjZudFHDcocmG2BXmK9kE9e3UTAvvomf8PUs4GJEQ0wbAXLsUm66UMNMjlS+bHSVhOeYdn4LaTc7l0xTFNVzK5Rl98OLJB4y9jXIhjk6eomNDqYQa/kWGo7/SVQmCCHbiKazvttbhFNIUx6pVLydpL4ZDYcIwlwhNYYW3vpC8tarQCItA3Y3/NIvjTRFMaSRRKCxVCKFYf6oCq+1HI="
+
 compiler:
   - gcc
 
@@ -7,9 +13,17 @@ addons:
   hosts:
     - 127.0.0.1.xip.io
     - alternate.127.0.0.1.xip.io
+  coverity_scan:
+    project:
+      name: "hbowden/h2o"
+      description: "<Your project description here>"
+    notification_email: 2trill2spill@gmail.com
+    build_command:   "mkdir build && cd build && cmake .."
+    branch_pattern: coverity_scan
 
 before_install:
   # upgrade g++ and libstdc++ to build nghttp2
+  - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
   - sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
   - sudo apt-add-repository --yes ppa:smspillaz/cmake-2.8.12
   - sudo apt-get --yes update
