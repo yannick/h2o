@@ -18,7 +18,7 @@ addons:
       name: "hbowden/h2o"
       description: "<Your project description here>"
     notification_email: 2trill2spill@gmail.com
-    build_command:   "mkdir build && cd build && cmake .."
+    build_command:   "mkdir build && cd build && cmake .. && make"
     branch_pattern: coverity_scan
 
 before_install:
