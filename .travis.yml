@@ -58,3 +58,4 @@ before_script:
   - (cd curl-7.50.0 && ./configure --prefix=/usr --with-nghttp2 --disable-shared && make && sudo make install)
 
 script:
+  - echo "skipping normal build process"
