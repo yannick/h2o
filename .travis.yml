@@ -1,5 +1,11 @@
 language: cpp
 
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "dV78IRdv8giYpZ15E3RoYtuYLdqCRMy9/Cd49+U8V/mW6Y+X0vE5wH4yah4D8RTPdMFvCZMyu0S03mo1ql0yBtqb6iGFS3ztCbNLh2vMxhTzboJjojjqCkiZIcewMnq7z+wprJ9IG9vESKAvJOZBkACBRgbxX67GyAwnokR8M/w="
+
 compiler:
   - gcc
 
@@ -7,9 +13,18 @@ addons:
   hosts:
     - 127.0.0.1.xip.io
     - alternate.127.0.0.1.xip.io
+  coverity_scan:
+    project:
+      name: "h2o/h2o"
+      description: "H2O - the optimized HTTP/1, HTTP/2 server"
+    notification_email: kazuhooku@gmail.com
+    build_command_prepend: "mkdir build && cd build && cmake .."
+    build_command: "cd build && make"
+    branch_pattern: coverity_scan
 
 before_install:
   # upgrade g++ and libstdc++ to build nghttp2
+  - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
   - sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
   - sudo apt-add-repository --yes ppa:smspillaz/cmake-2.8.12
   - sudo apt-get --yes update
