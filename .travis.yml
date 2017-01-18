@@ -18,8 +18,8 @@ addons:
       name: "h2o/h2o"
       description: "H2O - the optimized HTTP/1, HTTP/2 server"
     notification_email: kazuhooku@gmail.com
-    build_command_prepend: "mkdir build && cd build && cmake .."
-    build_command: "cd build && make"
+    build_command_prepend: "cmake ."
+    build_command: make
     branch_pattern: coverity_scan
 
 before_install:
@@ -58,7 +58,3 @@ before_script:
   - (cd curl-7.50.0 && ./configure --prefix=/usr --with-nghttp2 --disable-shared && make && sudo make install)
 
 script:
-  - cmake -DWITH_MRUBY=ON .
-  - make all
-  - make check
-  - sudo make check-as-root
