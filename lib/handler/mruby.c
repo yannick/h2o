@@ -46,9 +46,7 @@
 
 void h2o_mruby__assert_failed(mrb_state *mrb, const char *file, int line)
 {
-    mrb_value obj = mrb_funcall(mrb, mrb_obj_value(mrb->exc), "inspect", 0);
-    struct RString *error = mrb_str_ptr(obj);
-    fprintf(stderr, "unexpected ruby error at file: \"%s\", line %d: %s", file, line, error->as.heap.ptr);
+    fprintf(stderr, "unexpected ruby error at file: \"%s\", line %d: %s", file, line, RSTRING_PTR(mrb_inspect(mrb, mrb_obj_value(mrb->exc))));
     abort();
 }
 
@@ -75,9 +73,7 @@ void h2o_mruby_setup_globals(mrb_state *mrb)
         if (mrb_obj_is_instance_of(mrb, mrb_obj_value(mrb->exc), mrb_class_get(mrb, "LoadError"))) {
             fprintf(stderr, "file \"%s/%s\" not found. Did you forget to run `make install` ?", root, "share/h2o/mruby/preloads.rb");
         } else {
-            mrb_value obj = mrb_funcall(mrb, mrb_obj_value(mrb->exc), "inspect", 0);
-            struct RString *error = mrb_str_ptr(obj);
-            fprintf(stderr, "an error occurred while loading %s/%s: %s", root, "share/h2o/mruby/preloads.rb", error->as.heap.ptr);
+            fprintf(stderr, "an error occurred while loading %s/%s: %s", root, "share/h2o/mruby/preloads.rb", RSTRING_PTR(mrb_inspect(mrb, mrb_obj_value(mrb->exc))));
         }
         abort();
     }
@@ -381,10 +377,8 @@ static void on_context_init(h2o_handler_t *_handler, h2o_context_t *ctx)
 
     handler_ctx->proc = generate_handler_proc(handler_ctx);
     if (mrb->exc != NULL) {
-        mrb_value obj = mrb_funcall(mrb, mrb_obj_value(mrb->exc), "inspect", 0);
-        struct RString *error = mrb_str_ptr(obj);
         /* TODO: what information should be displayed here? */
-        fprintf(stderr, "mruby raised: %s\n", error->as.heap.ptr);
+        fprintf(stderr, "mruby raised: %s\n", RSTRING_PTR(mrb_inspect(mrb, mrb_obj_value(mrb->exc))));
         mrb->exc = NULL;
         return;
     }
@@ -418,9 +412,7 @@ static void on_handler_dispose(h2o_handler_t *_handler)
 
 static void report_exception(h2o_req_t *req, mrb_state *mrb)
 {
-    mrb_value obj = mrb_funcall(mrb, mrb_obj_value(mrb->exc), "inspect", 0);
-    struct RString *error = mrb_str_ptr(obj);
-    h2o_req_log_error(req, H2O_MRUBY_MODULE_NAME, "mruby raised: %s\n", error->as.heap.ptr);
+    h2o_req_log_error(req, H2O_MRUBY_MODULE_NAME, "mruby raised: %s\n", RSTRING_PTR(mrb_inspect(mrb, mrb_obj_value(mrb->exc))));
     mrb->exc = NULL;
 }
 
