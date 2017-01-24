@@ -784,6 +784,7 @@ void h2o_mruby_run_fiber(h2o_mruby_shared_context_t *shared_ctx, mrb_value recei
     mrb_value output;
     mrb_int status;
     h2o_mruby_generator_t *generator = NULL;
+    mrb_int i;
 
     while (1) {
         /* send input to fiber */
@@ -822,7 +823,7 @@ void h2o_mruby_run_fiber(h2o_mruby_shared_context_t *shared_ctx, mrb_value recei
             if (ctx == NULL)
                 goto GotException;
             mrb_int len = mrb_ary_len(mrb, ctx->pendings);
-            for (mrb_int i = 0; i != len; ++i) {
+            for (i = 0; i != len; ++i) {
                 mrb_value pending = mrb_ary_entry(ctx->pendings, i);
                 mrb_value resumer = mrb_ary_entry(pending, 0);
                 mrb_value args = mrb_ary_entry(pending, 1);
