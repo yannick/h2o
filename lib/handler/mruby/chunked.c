@@ -64,7 +64,7 @@ static void do_send(h2o_mruby_generator_t *generator, h2o_buffer_t **input, int 
         is_final = 0;
     }
 
-    h2o_send(generator->req, &buf, bufcnt, is_final ? H2O_SEND_STATE_FINAL : H2O_SEND_STATE_IN_PROGRESS);
+    h2o_mruby_send(generator, &buf, bufcnt, is_final ? H2O_SEND_STATE_FINAL : H2O_SEND_STATE_IN_PROGRESS);
 }
 
 static void do_proceed(h2o_generator_t *_generator, h2o_req_t *req)
@@ -182,8 +182,9 @@ static mrb_value check_precond(mrb_state *mrb, h2o_mruby_generator_t *generator)
 {
     if (generator == NULL || generator->req == NULL)
         return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "downstream HTTP closed");
-    if (generator->req->_generator == NULL)
-        return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "cannot send chunk before sending headers");
+
+    /* NOTE: if mruby handler enabled output filter, req->_generator become NULL when successor handlers sent H2O_SEND_STATE_FINAL */
+
     return mrb_nil_value();
 }
 

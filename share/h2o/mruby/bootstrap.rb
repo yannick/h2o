@@ -1,5 +1,25 @@
 module H2O
 
+  class << self
+    @@app = Proc.new do |req|
+      generator = @@fiber_to_generator[Fiber.current]
+      if generator.nil?
+        raise "generator is missing"
+      end
+      _h2o_call_app(req, generator)
+    end
+    def app
+      @@app
+    end
+
+    # mruby doesn't allow build-in object (i.ei Fiber) to have instance variable
+    # so manage it with hash table here
+    @@fiber_to_generator = {}
+    def set_generator(fiber, generator)
+        @@fiber_to_generator[fiber] = generator
+    end
+  end
+
   class ConfigurationContext
     def self.instance()
       @@instance

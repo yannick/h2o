@@ -63,11 +63,14 @@ module Kernel
         while 1
           begin
             while 1
+              H2O.set_generator(self_fiber, generator)
               resp = app.call(req)
+              H2O.set_generator(self_fiber, nil)
               cached = self_fiber
               (req, generator) = Fiber.yield(*resp, generator)
             end
           rescue => e
+            H2O.set_generator(self_fiber, nil)
             cached = self_fiber
             (req, generator) = Fiber.yield([H2O_CALLBACK_ID_EXCEPTION_RAISED, e, generator])
           end
@@ -98,3 +101,37 @@ module Kernel
   end
 
 end
+
+module H2O
+    class OutputFilterStream
+        def initialize
+            @chunks = []
+            @finished = false
+        end
+        def _push_chunks(chunks, finished)
+            @chunks.concat(chunks)
+            if finished
+                @finished = true
+            end
+        end
+        def each
+            loop do
+                while c = @chunks.shift
+                    yield c
+                end
+                if @finished
+                    break
+                end
+                _h2o_output_filter_wait_chunk(self)
+            end
+        end
+        def join
+            s = ""
+            each do |c|
+                s << c
+            end
+            s
+        end
+    end
+end
+

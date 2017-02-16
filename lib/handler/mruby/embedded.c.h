@@ -44,11 +44,14 @@
     "        while 1\n"                                                                                                            \
     "          begin\n"                                                                                                            \
     "            while 1\n"                                                                                                        \
+    "              H2O.set_generator(self_fiber, generator)\n"                                                                     \
     "              resp = app.call(req)\n"                                                                                         \
+    "              H2O.set_generator(self_fiber, nil)\n"                                                                           \
     "              cached = self_fiber\n"                                                                                          \
     "              (req, generator) = Fiber.yield(*resp, generator)\n"                                                             \
     "            end\n"                                                                                                            \
     "          rescue => e\n"                                                                                                      \
+    "            H2O.set_generator(self_fiber, nil)\n"                                                                             \
     "            cached = self_fiber\n"                                                                                            \
     "            (req, generator) = Fiber.yield([H2O_CALLBACK_ID_EXCEPTION_RAISED, e, generator])\n"                               \
     "          end\n"                                                                                                              \
@@ -75,6 +78,38 @@
     "    end\n"                                                                                                                    \
     "    [runner, configurator]\n"                                                                                                 \
     "  end\n"                                                                                                                      \
+    "end\n"                                                                                                                        \
+    "module H2O\n"                                                                                                                 \
+    "    class OutputFilterStream\n"                                                                                               \
+    "        def initialize\n"                                                                                                     \
+    "            @chunks = []\n"                                                                                                   \
+    "            @finished = false\n"                                                                                              \
+    "        end\n"                                                                                                                \
+    "        def _push_chunks(chunks, finished)\n"                                                                                 \
+    "            @chunks.concat(chunks)\n"                                                                                         \
+    "            if finished\n"                                                                                                    \
+    "                @finished = true\n"                                                                                           \
+    "            end\n"                                                                                                            \
+    "        end\n"                                                                                                                \
+    "        def each\n"                                                                                                           \
+    "            loop do\n"                                                                                                        \
+    "                while c = @chunks.shift\n"                                                                                    \
+    "                    yield c\n"                                                                                                \
+    "                end\n"                                                                                                        \
+    "                if @finished\n"                                                                                               \
+    "                    break\n"                                                                                                  \
+    "                end\n"                                                                                                        \
+    "                _h2o_output_filter_wait_chunk(self)\n"                                                                        \
+    "            end\n"                                                                                                            \
+    "        end\n"                                                                                                                \
+    "        def join\n"                                                                                                           \
+    "            s = \"\"\n"                                                                                                       \
+    "            each do |c|\n"                                                                                                    \
+    "                s << c\n"                                                                                                     \
+    "            end\n"                                                                                                            \
+    "            s\n"                                                                                                              \
+    "        end\n"                                                                                                                \
+    "    end\n"                                                                                                                    \
     "end\n"
 
 /* lib/handler/mruby/embedded/http_request.rb */
