@@ -80,36 +80,61 @@
     "  end\n"                                                                                                                      \
     "end\n"                                                                                                                        \
     "module H2O\n"                                                                                                                 \
-    "    class OutputFilterStream\n"                                                                                               \
-    "        def initialize\n"                                                                                                     \
-    "            @chunks = []\n"                                                                                                   \
-    "            @finished = false\n"                                                                                              \
-    "        end\n"                                                                                                                \
-    "        def _push_chunks(chunks, finished)\n"                                                                                 \
-    "            @chunks.concat(chunks)\n"                                                                                         \
-    "            if finished\n"                                                                                                    \
-    "                @finished = true\n"                                                                                           \
-    "            end\n"                                                                                                            \
-    "        end\n"                                                                                                                \
-    "        def each\n"                                                                                                           \
-    "            loop do\n"                                                                                                        \
-    "                while c = @chunks.shift\n"                                                                                    \
-    "                    yield c\n"                                                                                                \
-    "                end\n"                                                                                                        \
-    "                if @finished\n"                                                                                               \
-    "                    break\n"                                                                                                  \
-    "                end\n"                                                                                                        \
-    "                _h2o_output_filter_wait_chunk(self)\n"                                                                        \
-    "            end\n"                                                                                                            \
-    "        end\n"                                                                                                                \
-    "        def join\n"                                                                                                           \
-    "            s = \"\"\n"                                                                                                       \
-    "            each do |c|\n"                                                                                                    \
-    "                s << c\n"                                                                                                     \
-    "            end\n"                                                                                                            \
-    "            s\n"                                                                                                              \
-    "        end\n"                                                                                                                \
+    "  class App\n"                                                                                                                \
+    "    def call(env)\n"                                                                                                          \
+    "      generator = H2O.get_generator(Fiber.current)\n"                                                                         \
+    "      _h2o_invoke_app(env, generator, false)\n"                                                                               \
     "    end\n"                                                                                                                    \
+    "    def reprocess(env)\n"                                                                                                     \
+    "      generator = H2O.get_generator(Fiber.current)\n"                                                                         \
+    "      _h2o_invoke_app(env, generator, true)\n"                                                                                \
+    "    end\n"                                                                                                                    \
+    "  end\n"                                                                                                                      \
+    "  class << self\n"                                                                                                            \
+    "    @@app = App.new\n"                                                                                                        \
+    "    def app\n"                                                                                                                \
+    "      @@app\n"                                                                                                                \
+    "    end\n"                                                                                                                    \
+    "    # mruby doesn't allow build-in object (i.ei Fiber) to have instance variable\n"                                           \
+    "    # so manage it with hash table here\n"                                                                                    \
+    "    @@fiber_to_generator = {}\n"                                                                                              \
+    "    def set_generator(fiber, generator)\n"                                                                                    \
+    "        @@fiber_to_generator[fiber] = generator\n"                                                                            \
+    "    end\n"                                                                                                                    \
+    "    def get_generator(fiber)\n"                                                                                               \
+    "        @@fiber_to_generator[fiber]\n"                                                                                        \
+    "    end\n"                                                                                                                    \
+    "  end\n"                                                                                                                      \
+    "  class OutputFilterStream\n"                                                                                                 \
+    "    def initialize\n"                                                                                                         \
+    "      @chunks = []\n"                                                                                                         \
+    "      @finished = false\n"                                                                                                    \
+    "    end\n"                                                                                                                    \
+    "    def _push_chunks(chunks, finished)\n"                                                                                     \
+    "      @chunks.concat(chunks)\n"                                                                                               \
+    "      if finished\n"                                                                                                          \
+    "        @finished = true\n"                                                                                                   \
+    "      end\n"                                                                                                                  \
+    "    end\n"                                                                                                                    \
+    "    def each\n"                                                                                                               \
+    "      loop do\n"                                                                                                              \
+    "        while c = @chunks.shift\n"                                                                                            \
+    "          yield c\n"                                                                                                          \
+    "        end\n"                                                                                                                \
+    "        if @finished\n"                                                                                                       \
+    "          break\n"                                                                                                            \
+    "        end\n"                                                                                                                \
+    "        _h2o_output_filter_wait_chunk(self)\n"                                                                                \
+    "      end\n"                                                                                                                  \
+    "    end\n"                                                                                                                    \
+    "    def join\n"                                                                                                               \
+    "      s = \"\"\n"                                                                                                             \
+    "      each do |c|\n"                                                                                                          \
+    "        s << c\n"                                                                                                             \
+    "      end\n"                                                                                                                  \
+    "      s\n"                                                                                                                    \
+    "    end\n"                                                                                                                    \
+    "  end\n"                                                                                                                      \
     "end\n"
 
 /* lib/handler/mruby/embedded/http_request.rb */

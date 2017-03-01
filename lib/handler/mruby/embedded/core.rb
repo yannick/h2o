@@ -103,35 +103,64 @@ module Kernel
 end
 
 module H2O
-    class OutputFilterStream
-        def initialize
-            @chunks = []
-            @finished = false
-        end
-        def _push_chunks(chunks, finished)
-            @chunks.concat(chunks)
-            if finished
-                @finished = true
-            end
-        end
-        def each
-            loop do
-                while c = @chunks.shift
-                    yield c
-                end
-                if @finished
-                    break
-                end
-                _h2o_output_filter_wait_chunk(self)
-            end
-        end
-        def join
-            s = ""
-            each do |c|
-                s << c
-            end
-            s
-        end
+
+  class App
+    def call(env)
+      generator = H2O.get_generator(Fiber.current)
+      _h2o_invoke_app(env, generator, false)
     end
+    def reprocess(env)
+      generator = H2O.get_generator(Fiber.current)
+      _h2o_invoke_app(env, generator, true)
+    end
+  end
+
+  class << self
+    @@app = App.new
+    def app
+      @@app
+    end
+
+    # mruby doesn't allow build-in object (i.ei Fiber) to have instance variable
+    # so manage it with hash table here
+    @@fiber_to_generator = {}
+    def set_generator(fiber, generator)
+        @@fiber_to_generator[fiber] = generator
+    end
+    def get_generator(fiber)
+        @@fiber_to_generator[fiber]
+    end
+  end
+
+  class OutputFilterStream
+    def initialize
+      @chunks = []
+      @finished = false
+    end
+    def _push_chunks(chunks, finished)
+      @chunks.concat(chunks)
+      if finished
+        @finished = true
+      end
+    end
+    def each
+      loop do
+        while c = @chunks.shift
+          yield c
+        end
+        if @finished
+          break
+        end
+        _h2o_output_filter_wait_chunk(self)
+      end
+    end
+    def join
+      s = ""
+      each do |c|
+        s << c
+      end
+      s
+    end
+  end
 end
 

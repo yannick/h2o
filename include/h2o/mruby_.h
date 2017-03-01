@@ -125,7 +125,7 @@ typedef struct st_h2o_mruby_generator_t {
 #define H2O_MRUBY_CALLBACK_ID_SEND_CHUNKED_EOS -4
 #define H2O_MRUBY_CALLBACK_ID_HTTP_JOIN_RESPONSE -5
 #define H2O_MRUBY_CALLBACK_ID_HTTP_FETCH_CHUNK -6
-#define H2O_MRUBY_CALLBACK_ID_CALL_APP -7
+#define H2O_MRUBY_CALLBACK_ID_INVOKE_APP -7
 #define H2O_MRUBY_CALLBACK_ID_OUTPUT_FILTER_WAIT_CHUNK -8
 
 #define h2o_mruby_assert(mrb)                                                                                                      \

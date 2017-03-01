@@ -305,7 +305,7 @@ static h2o_mruby_shared_context_t *create_shared_context(h2o_context_t *ctx)
     mrb_ary_set(shared_ctx->mrb, shared_ctx->constants, H2O_MRUBY_GENERATOR_CLASS, mrb_obj_value(generator_klass));
 
 
-    h2o_mruby_define_callback(shared_ctx->mrb, "_h2o_call_app", H2O_MRUBY_CALLBACK_ID_CALL_APP);
+    h2o_mruby_define_callback(shared_ctx->mrb, "_h2o_invoke_app", H2O_MRUBY_CALLBACK_ID_INVOKE_APP);
 
     h2o_mruby_define_callback(shared_ctx->mrb, "_h2o_output_filter_wait_chunk", H2O_MRUBY_CALLBACK_ID_OUTPUT_FILTER_WAIT_CHUNK);
     struct RClass *klass = mrb_class_get_under(shared_ctx->mrb, module, "OutputFilterStream");
@@ -858,13 +858,16 @@ static void ostream_send(h2o_ostream_t *_self, h2o_req_t *req, h2o_iovec_t *inbu
     mrb_gc_arena_restore(mrb, gc_arena);
 }
 
-static mrb_value call_app_callback(h2o_mruby_context_t *ctx, mrb_value receiver, mrb_value args, int *run_again)
+static mrb_value invoke_app_callback(h2o_mruby_context_t *ctx, mrb_value receiver, mrb_value args, int *run_again)
 {
     mrb_value genref = mrb_ary_entry(args, 1);
     mrb_state *mrb = ctx->shared->mrb;
     h2o_mruby_generator_t *generator = h2o_mruby_get_generator(mrb, genref);
+
+    mrb_value reprocess = mrb_ary_entry(args, 2);
+
     if (generator == NULL)
-        return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "missing generator");
+        return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "generator is missing");
     if (generator->req == NULL)
         return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "downstream HTTP closed");
 
@@ -883,12 +886,29 @@ static mrb_value call_app_callback(h2o_mruby_context_t *ctx, mrb_value receiver,
 
     // TODO: rewrite generator->req using env
     // NOTE: preserve headers and others, like errordoc?
-    // mrb_value env = mrb_ary_entry(args, 0);
+    mrb_value env = mrb_ary_entry(args, 0);
 
-    h2o_delegate_request_deferred(req, &generator->ctx->handler->super);
 
-    // TODO: reprocess
-    //    h2o_send_redirect_internal(req, method, errordoc->url.base, errordoc->url.len, 0);
+    if (mrb_bool(reprocess)) {
+        mrb_value script_name = mrb_hash_get(mrb, env, mrb_ary_entry(ctx->shared->constants, H2O_MRUBY_LIT_SCRIPT_NAME));
+        mrb_value path_info = mrb_hash_get(mrb, env, mrb_ary_entry(ctx->shared->constants, H2O_MRUBY_LIT_PATH_INFO));
+
+        h2o_iovec_t path;
+        path.len = RSTRING_LEN(script_name);
+        if (RSTRING_LEN(path_info) > 0)
+            path.len += RSTRING_LEN(path_info) + 1;
+        path.base = h2o_mem_alloc_pool(&req->pool, path.len);
+        memcpy(path.base, RSTRING_PTR(script_name), RSTRING_LEN(script_name));
+        if (RSTRING_LEN(path_info) > 0) {
+            memcpy(path.base + RSTRING_LEN(script_name), "/", 1);
+            memcpy(path.base + 1 + RSTRING_LEN(script_name), RSTRING_PTR(path_info), RSTRING_LEN(path_info));
+        }
+
+        h2o_reprocess_request_deferred(req, req->method, req->scheme, req->authority, path, req->overrides, 1);
+        /* TODO: what the is_delegate argument means? */
+    } else {
+        h2o_delegate_request_deferred(req, &generator->ctx->handler->super);
+    }
 
     return mrb_nil_value();
 }
@@ -990,8 +1010,8 @@ void h2o_mruby_run_fiber(h2o_mruby_context_t *ctx, mrb_value receiver, mrb_value
             case H2O_MRUBY_CALLBACK_ID_HTTP_FETCH_CHUNK:
                 input = h2o_mruby_http_fetch_chunk_callback(ctx, receiver, args, &run_again);
                 break;
-            case H2O_MRUBY_CALLBACK_ID_CALL_APP:
-                input = call_app_callback(ctx, receiver, args, &run_again);
+            case H2O_MRUBY_CALLBACK_ID_INVOKE_APP:
+                input = invoke_app_callback(ctx, receiver, args, &run_again);
                 break;
             case H2O_MRUBY_CALLBACK_ID_OUTPUT_FILTER_WAIT_CHUNK:
                 input = output_filter_wait_chunk_callback(ctx, receiver, args, &run_again);
