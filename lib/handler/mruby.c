@@ -758,10 +758,11 @@ GotException:
     }
 }
 
-static mrb_value create_response(struct st_mruby_output_ostream_t *ostream, h2o_req_t *req)
+static mrb_value build_app_response(struct st_mruby_output_ostream_t *ostream, h2o_req_t *req)
 {
     h2o_mruby_context_t *ctx = ostream->ctx;
     mrb_state *mrb = ctx->shared->mrb;
+    size_t i;
 
     /* build response array */
     mrb_value resp = mrb_ary_new_capa(mrb, 3);
@@ -775,7 +776,7 @@ static mrb_value create_response(struct st_mruby_output_ostream_t *ostream, h2o_
         h2o_header_t *headers_sorted = alloca(sizeof(*headers_sorted) * req->res.headers.size);
         memcpy(headers_sorted, req->res.headers.entries, sizeof(*headers_sorted) * req->res.headers.size);
         qsort(headers_sorted, req->res.headers.size, sizeof(*headers_sorted), build_env_sort_header_cb);
-        for (size_t i = 0; i != req->res.headers.size; ++i) {
+        for (i = 0; i != req->res.headers.size; ++i) {
             const h2o_header_t *header = headers_sorted + i;
             mrb_value n, v;
             if (h2o_iovec_is_token(header->name)) {
@@ -842,7 +843,7 @@ static void ostream_send(h2o_ostream_t *_self, h2o_req_t *req, h2o_iovec_t *inbu
 
     if (mrb_nil_p(self->ref)) {
         /* resume H2O.app.call (which expects resp) */
-        mrb_value resp = create_response(self, req);
+        mrb_value resp = build_app_response(self, req);
         self->ref = mrb_ary_entry(resp, 2);
         input = resp;
     } else {
