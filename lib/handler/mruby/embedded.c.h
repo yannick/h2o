@@ -127,3 +127,19 @@
     "    end\n"                                                                                                                    \
     "  end\n"                                                                                                                      \
     "end\n"
+
+/* lib/handler/mruby/embedded/socket.rb */
+#define H2O_MRUBY_CODE_SOCKET                                                                                                      \
+    "module H2O\n"                                                                                                                 \
+    "  class TCPSocket\n"                                                                                                          \
+    "    def self.connect(host, service) # TODO: local_host and local_service\n"                                                   \
+    "      _h2o_socket_connect(host, service)\n"                                                                                   \
+    "    end\n"                                                                                                                    \
+    "    def write(str)\n"                                                                                                         \
+    "      _h2o_socket_write(self, str)\n"                                                                                         \
+    "    end\n"                                                                                                                    \
+    "    def read(length = nil)\n"                                                                                                 \
+    "      _h2o_socket_read(self, length)\n"                                                                                       \
+    "    end\n"                                                                                                                    \
+    "  end\n"                                                                                                                      \
+    "end\n"

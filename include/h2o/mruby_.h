@@ -65,6 +65,9 @@ enum {
     H2O_MRUBY_HTTP_REQUEST_CLASS,
     H2O_MRUBY_HTTP_INPUT_STREAM_CLASS,
 
+    /* used by socket.c */
+    H2O_MRUBY_TCP_SOCKET_CLASS,
+
     H2O_MRUBY_NUM_CONSTANTS
 };
 
@@ -122,6 +125,10 @@ typedef struct st_h2o_mruby_generator_t {
 #define H2O_MRUBY_CALLBACK_ID_SEND_CHUNKED_EOS -4
 #define H2O_MRUBY_CALLBACK_ID_HTTP_JOIN_RESPONSE -5
 #define H2O_MRUBY_CALLBACK_ID_HTTP_FETCH_CHUNK -6
+
+#define H2O_MRUBY_CALLBACK_ID_SOCKET_CONNECT -20
+#define H2O_MRUBY_CALLBACK_ID_SOCKET_WRITE -21
+#define H2O_MRUBY_CALLBACK_ID_SOCKET_READ -22
 
 #define h2o_mruby_assert(mrb)                                                                                                      \
     if (mrb->exc != NULL)                                                                                                          \
@@ -181,6 +188,12 @@ mrb_value h2o_mruby_http_fetch_chunk_callback(h2o_mruby_context_t *ctx, mrb_valu
 
 h2o_mruby_http_request_context_t *h2o_mruby_http_set_shortcut(mrb_state *mrb, mrb_value obj, void (*cb)(h2o_mruby_generator_t *), h2o_mruby_generator_t *generator);
 h2o_buffer_t **h2o_mruby_http_peek_content(h2o_mruby_http_request_context_t *ctx, int *is_final);
+
+/* handler/mruby/socket.c */
+void h2o_mruby_socket_init_context(h2o_mruby_shared_context_t *ctx);
+mrb_value h2o_mruby_socket_connect_callback(h2o_mruby_context_t *ctx, mrb_value receiver, mrb_value args, int *next_action);
+mrb_value h2o_mruby_socket_read_callback(h2o_mruby_context_t *ctx, mrb_value receiver, mrb_value args, int *next_action);
+mrb_value h2o_mruby_socket_write_callback(h2o_mruby_context_t *ctx, mrb_value receiver, mrb_value args, int *next_action);
 
 /* handler/configurator/mruby.c */
 void h2o_mruby_register_configurator(h2o_globalconf_t *conf);
