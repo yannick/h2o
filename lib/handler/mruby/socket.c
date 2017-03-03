@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016 DeNA Co., Ltd., Kazuho Oku
+ * Copyright (c) 2017 DeNA Co., Ltd., Ichito Nagata
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -22,9 +22,7 @@
 #include <mruby.h>
 #include <mruby/array.h>
 #include <mruby/error.h>
-#include <mruby/hash.h>
 #include <mruby/string.h>
-#include <mruby_input_stream.h>
 #include "h2o/mruby_.h"
 #include "embedded.c.h"
 
