@@ -89,7 +89,7 @@ static void log_access(h2o_logger_t *_self, h2o_req_t *req)
     {
         opaque = h2o_mem_alloc(sizeof(h2o_kafka_msg_opaque_t));
         opaque->hash = crc32(crc32(0, NULL, 0), (const unsigned char *)logline_hash, len_hash);
-        opaque->use_hash = TRUE;
+        opaque->use_hash = 1;
     }
     
     if(kh->logconf_key)
