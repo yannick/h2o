@@ -94,6 +94,7 @@ INCLUDE_DIRECTORIES(
     deps/cloexec
     deps/brotli/enc
     deps/golombset
+    deps/hiredis
     deps/libgkc
     deps/libyrmcds
     deps/klib
@@ -214,6 +215,11 @@ SET(PICOTLS_SOURCE_FILES
 
 SET(LIB_SOURCE_FILES
     deps/cloexec/cloexec.c
+    deps/hiredis/async.c
+    deps/hiredis/hiredis.c
+    deps/hiredis/net.c
+    deps/hiredis/read.c
+    deps/hiredis/sds.c
     deps/libgkc/gkc.c
     deps/libyrmcds/close.c
     deps/libyrmcds/connect.c
@@ -233,6 +239,7 @@ SET(LIB_SOURCE_FILES
     lib/common/memcached.c
     lib/common/memory.c
     lib/common/multithread.c
+    lib/common/redis.c
     lib/common/serverutil.c
     lib/common/socket.c
     lib/common/socketpool.c
@@ -451,6 +458,7 @@ IF (WITH_MRUBY)
         lib/handler/mruby.c
         lib/handler/mruby/chunked.c
         lib/handler/mruby/http_request.c
+        lib/handler/mruby/redis.c
         lib/handler/configurator/mruby.c)
     SET(STANDALONE_COMPILE_FLAGS "${STANDALONE_COMPILE_FLAGS} -DH2O_USE_MRUBY=1")
 ENDIF (WITH_MRUBY)
