@@ -116,7 +116,7 @@ static h2o_hostconf_t *find_hostconf(h2o_hostconf_t **hostconfs, h2o_iovec_t aut
     return NULL;
 }
 
-static h2o_hostconf_t *setup_before_processing(h2o_req_t *req)
+h2o_hostconf_t *h2o_req_setup(h2o_req_t *req)
 {
     h2o_context_t *ctx = req->conn->ctx;
     h2o_hostconf_t *hostconf;
@@ -208,6 +208,18 @@ static void reset_response(h2o_req_t *req)
     req->bytes_sent = 0;
 }
 
+static void retain_original_response(h2o_req_t *req)
+{
+    if (req->res.original.status != 0)
+        return;
+
+    req->res.original.status = req->res.status;
+    h2o_vector_reserve(&req->pool, &req->res.original.headers, req->res.headers.size);
+    h2o_memcpy(req->res.original.headers.entries, req->res.headers.entries,
+               sizeof(req->res.headers.entries[0]) * req->res.headers.size);
+    req->res.original.headers.size = req->res.headers.size;
+}
+
 void h2o_init_request(h2o_req_t *req, h2o_conn_t *conn, h2o_req_t *src)
 {
     /* clear all memory (expect memory pool, since it is large) */
@@ -257,6 +269,10 @@ void h2o_init_request(h2o_req_t *req, h2o_conn_t *conn, h2o_req_t *src)
                 *dst_header->name = h2o_strdup(&req->pool, src_header->name->base, src_header->name->len);
             }
             dst_header->value = h2o_strdup(&req->pool, src_header->value.base, src_header->value.len);
+            if (!src_header->orig_name)
+                dst_header->orig_name = NULL;
+            else
+                dst_header->orig_name = h2o_strdup(&req->pool, src_header->orig_name, src_header->name->len).base;
         }
         if (src->env.size != 0) {
             h2o_vector_reserve(&req->pool, &req->env, src->env.size);
@@ -273,7 +289,7 @@ void h2o_dispose_request(h2o_req_t *req)
 
     h2o_timeout_unlink(&req->_timeout_entry);
 
-    if (req->version != 0 && req->pathconf != NULL) {
+    if (req->pathconf != NULL) {
         h2o_logger_t **logger = req->pathconf->loggers.entries, **end = logger + req->pathconf->loggers.size;
         for (; logger != end; ++logger) {
             (*logger)->log_access((*logger), req);
@@ -285,7 +301,7 @@ void h2o_dispose_request(h2o_req_t *req)
 
 void h2o_process_request(h2o_req_t *req)
 {
-    h2o_hostconf_t *hostconf = setup_before_processing(req);
+    h2o_hostconf_t *hostconf = h2o_req_setup(req);
     process_hosted_request(req, hostconf);
 }
 
@@ -320,6 +336,8 @@ void h2o_reprocess_request(h2o_req_t *req, h2o_iovec_t method, const h2o_url_sch
                            h2o_iovec_t path, h2o_req_overrides_t *overrides, int is_delegated)
 {
     h2o_hostconf_t *hostconf;
+
+    retain_original_response(req);
 
     /* close generators and filters that are already running */
     close_generator_and_filters(req);
@@ -384,6 +402,8 @@ void h2o_reprocess_request_deferred(h2o_req_t *req, h2o_iovec_t method, const h2
 
 void h2o_start_response(h2o_req_t *req, h2o_generator_t *generator)
 {
+    retain_original_response(req);
+
     /* set generator */
     assert(req->_generator == NULL);
     req->_generator = generator;
@@ -499,7 +519,7 @@ void h2o_send_inline(h2o_req_t *req, const char *body, size_t len)
 void h2o_send_error_generic(h2o_req_t *req, int status, const char *reason, const char *body, int flags)
 {
     if (req->pathconf == NULL) {
-        h2o_hostconf_t *hostconf = setup_before_processing(req);
+        h2o_hostconf_t *hostconf = h2o_req_setup(req);
         h2o_req_bind_conf(req, hostconf, &hostconf->fallback_path);
     }
 
@@ -513,7 +533,7 @@ void h2o_send_error_generic(h2o_req_t *req, int status, const char *reason, cons
     if ((flags & H2O_SEND_ERROR_KEEP_HEADERS) == 0)
         memset(&req->res.headers, 0, sizeof(req->res.headers));
 
-    h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, H2O_STRLIT("text/plain; charset=utf-8"));
+    h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, NULL, H2O_STRLIT("text/plain; charset=utf-8"));
 
     h2o_send_inline(req, body, SIZE_MAX);
 }
@@ -613,8 +633,8 @@ void h2o_send_redirect(h2o_req_t *req, int status, const char *reason, const cha
     req->res.status = status;
     req->res.reason = reason;
     req->res.headers = (h2o_headers_t){NULL};
-    h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_LOCATION, url, url_len);
-    h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, H2O_STRLIT("text/html; charset=utf-8"));
+    h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_LOCATION, NULL, url, url_len);
+    h2o_add_header(&req->pool, &req->res.headers, H2O_TOKEN_CONTENT_TYPE, NULL, H2O_STRLIT("text/html; charset=utf-8"));
     h2o_start_response(req, &generator);
     h2o_send(req, bufs, bufcnt, H2O_SEND_STATE_FINAL);
 }

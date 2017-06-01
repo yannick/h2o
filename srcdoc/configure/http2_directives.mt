@@ -32,7 +32,7 @@ See also:
 H2O recognizes <code>link</code> headers with <a href="https://w3c.github.io/preload/">preload</a> keyword sent by a backend application server (reverse proxy or FastCGI) or an mruby handler, and pushes the designated resource to a client.
 </p>
 <?= $ctx->{example}->('A link response header triggering HTTP/2 push', <<'EOT')
-link: </assets/jquery.js>; rel=preload
+link: </assets/jquery.js>; rel=preload; as=script
 EOT
 ?>
 
@@ -60,8 +60,8 @@ The following example shows how such responses would look like.
 </p>
 <?= $ctx->{example}->('100 response with link headers', <<'EOT')
 HTTP/1.1 100 Continue
-Link: </assets/style.css>; rel=preload
-Link: </assets/jquery.js>; rel=preload
+Link: </assets/style.css>; rel=preload; as=style
+Link: </assets/jquery.js>; rel=preload; as=script
 
 HTTP/1.1 200 OK
 Content-Type: text/html; charset=utf-8
@@ -341,5 +341,16 @@ Technically speaking, it does the following:
 </ul>
 </p>
 ? });
+
+<?
+$ctx->{directive}->(
+    name    => "http2-graceful-shutdown-timeout",
+    levels  => [ qw(global) ],
+    default => 'http2-graceful-shutdown-timeout: 0',
+    desc    => <<'EOT',
+A timeout in seconds. How long to wait before closing the connection on graceful shutdown. Setting the timeout to <code>0</code> deactivates the feature: H2O will wait for the peer to close the connections.
+EOT
+)->(sub {});
+?>
 
 ? })
