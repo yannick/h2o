@@ -117,8 +117,6 @@ module H2O
       generator = H2O.get_generator(Fiber.current)
       _h2o_invoke_app(env, generator, true)
     end
-
-    [runner, configurator]
   end
 
   class << self

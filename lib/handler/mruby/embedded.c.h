@@ -92,7 +92,6 @@
     "      generator = H2O.get_generator(Fiber.current)\n"                                                                         \
     "      _h2o_invoke_app(env, generator, true)\n"                                                                                \
     "    end\n"                                                                                                                    \
-    "    [runner, configurator]\n"                                                                                                 \
     "  end\n"                                                                                                                      \
     "  class << self\n"                                                                                                            \
     "    @@app = App.new\n"                                                                                                        \
