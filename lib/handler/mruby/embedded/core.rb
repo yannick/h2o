@@ -125,14 +125,18 @@ module H2O
       @@app
     end
 
-    # mruby doesn't allow build-in object (i.ei Fiber) to have instance variable
+    # mruby doesn't allow built-in object (i.e Fiber) to have instance variable
     # so manage it with hash table here
     @@fiber_to_generator = {}
     def set_generator(fiber, generator)
-        @@fiber_to_generator[fiber] = generator
+        if generator.nil?
+          @@fiber_to_generator.delete(fiber.object_id)
+        else
+          @@fiber_to_generator[fiber.object_id] = generator
+        end
     end
     def get_generator(fiber)
-        @@fiber_to_generator[fiber]
+        @@fiber_to_generator[fiber.object_id]
     end
   end
 

@@ -98,14 +98,18 @@
     "    def app\n"                                                                                                                \
     "      @@app\n"                                                                                                                \
     "    end\n"                                                                                                                    \
-    "    # mruby doesn't allow build-in object (i.ei Fiber) to have instance variable\n"                                           \
+    "    # mruby doesn't allow built-in object (i.e Fiber) to have instance variable\n"                                            \
     "    # so manage it with hash table here\n"                                                                                    \
     "    @@fiber_to_generator = {}\n"                                                                                              \
     "    def set_generator(fiber, generator)\n"                                                                                    \
-    "        @@fiber_to_generator[fiber] = generator\n"                                                                            \
+    "        if generator.nil?\n"                                                                                                  \
+    "          @@fiber_to_generator.delete(fiber.object_id)\n"                                                                     \
+    "        else\n"                                                                                                               \
+    "          @@fiber_to_generator[fiber.object_id] = generator\n"                                                                \
+    "        end\n"                                                                                                                \
     "    end\n"                                                                                                                    \
     "    def get_generator(fiber)\n"                                                                                               \
-    "        @@fiber_to_generator[fiber]\n"                                                                                        \
+    "        @@fiber_to_generator[fiber.object_id]\n"                                                                              \
     "    end\n"                                                                                                                    \
     "  end\n"                                                                                                                      \
     "  class OutputFilterStream\n"                                                                                                 \
