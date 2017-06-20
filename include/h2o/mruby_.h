@@ -96,7 +96,6 @@ typedef struct st_h2o_mruby_shared_context_t {
     } symbols;
 } h2o_mruby_shared_context_t;
 
-typedef struct st_h2o_mruby_generator_t h2o_mruby_generator_t;
 typedef struct st_h2o_mruby_context_t {
     h2o_mruby_handler_t *handler;
     mrb_value proc;
