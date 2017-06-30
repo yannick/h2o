@@ -847,13 +847,22 @@ static void ostream_send(h2o_ostream_t *_self, h2o_req_t *req, h2o_iovec_t *inbu
     mrb_value input;
 
     if (mrb_nil_p(self->ref)) {
-        /* resume H2O.app.call (which expects resp) */
+        /* at first call, resume H2O.app.call (which expects resp) */
         mrb_value resp = build_app_response(self, req);
+
+        /* clear the response except for original */
+        req->res.status = 0;
+        req->res.reason = "OK";
+        req->res.content_length = SIZE_MAX;
+        req->res.headers = (h2o_headers_t){NULL};
+        req->res.mime_attr = NULL;
+
         self->ref = mrb_ary_entry(resp, 2);
         input = resp;
     } else {
         assert(self->generator->chunked != NULL);
-        /* resume _h2o_output_filter_wait_chunk (which expects nothing) */
+        /* resume _h2o_output_filter_wait_chunk (which expects no arguments) */
+        /* TODO: fast path */
         input = mrb_nil_value();
     }
     mrb_funcall(mrb, self->ref, "_push_chunks", 2, chunks, finished);
