@@ -60,7 +60,7 @@ static void on_gc_dispose_output_filter(mrb_state *mrb, void *_ostream)
     ostream->ref = mrb_nil_value();
 }
 
-const static struct mrb_data_type input_stream_type = {"output_filter", on_gc_dispose_output_filter};
+const static struct mrb_data_type output_filter_stream_type = {"output_filter", on_gc_dispose_output_filter};
 
 void h2o_mruby__assert_failed(mrb_state *mrb, const char *file, int line)
 {
@@ -809,7 +809,7 @@ static mrb_value build_app_response(struct st_mruby_output_ostream_t *ostream, h
 
     /* body */
     {
-        mrb_value body = h2o_mruby_create_data_instance(mrb, mrb_ary_entry(ctx->shared->constants, H2O_MRUBY_OUTPUT_FILTER_STREAM_CLASS), ostream, &input_stream_type);
+        mrb_value body = h2o_mruby_create_data_instance(mrb, mrb_ary_entry(ctx->shared->constants, H2O_MRUBY_OUTPUT_FILTER_STREAM_CLASS), ostream, &output_filter_stream_type);
         mrb_funcall(mrb, body, "initialize", 0);
         mrb_ary_set(mrb, resp, 2, body);
     }
@@ -836,8 +836,8 @@ static void ostream_send(h2o_ostream_t *_self, h2o_req_t *req, h2o_iovec_t *inbu
     mrb_gc_protect(mrb, receiver);
     self->receiver = mrb_nil_value();
 
-    mrb_value chunks = mrb_ary_new_capa(mrb, inbufcnt);
-    size_t i;
+    mrb_value chunks = mrb_ary_new_capa(mrb, (mrb_int)inbufcnt);
+    mrb_int i;
     for (i = 0; i < inbufcnt; ++i) {
         mrb_value chunk = mrb_str_new(mrb, inbufs[i].base, inbufs[i].len);
         mrb_ary_set(mrb, chunks, i, chunk);
@@ -924,7 +924,7 @@ static mrb_value output_filter_wait_chunk_callback(h2o_mruby_context_t *mctx, mr
     mrb_state *mrb = mctx->shared->mrb;
     struct st_mruby_output_ostream_t *ostream;
 
-    if ((ostream = mrb_data_check_get_ptr(mrb, mrb_ary_entry(args, 0), &input_stream_type)) == NULL) {
+    if ((ostream = mrb_data_check_get_ptr(mrb, mrb_ary_entry(args, 0), &output_filter_stream_type)) == NULL) {
         return mrb_exc_new_str_lit(mrb, E_ARGUMENT_ERROR, "OutputFilterStream#each wrong self");
     }
 

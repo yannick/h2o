@@ -200,7 +200,7 @@ static mrb_value check_precond(mrb_state *mrb, h2o_mruby_generator_t *generator)
     if (generator == NULL || generator->req == NULL)
         return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "downstream HTTP closed");
 
-    /* NOTE: if mruby handler enabled output filter, req->_generator become NULL when successor handlers sent H2O_SEND_STATE_FINAL */
+    /* NOTE: if mruby handler uses output filter, req->_generator becomes NULL when successor handlers sent H2O_SEND_STATE_FINAL */
 
     return mrb_nil_value();
 }
