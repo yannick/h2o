@@ -872,10 +872,11 @@ static mrb_value invoke_app_callback(h2o_mruby_context_t *ctx, mrb_value receive
 
     mrb_value reprocess = mrb_ary_entry(args, 2);
 
-    if (generator == NULL)
-        return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "generator is missing");
-    if (generator->req == NULL)
+    if (generator == NULL) {
+        *run_again = 1;
         return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "downstream HTTP closed");
+    }
+    assert(generator->req != NULL);
 
     h2o_req_t *req = generator->req;
 
@@ -1052,10 +1053,6 @@ void h2o_mruby_run_fiber(h2o_mruby_context_t *ctx, mrb_value receiver, mrb_value
         mrb->exc = mrb_obj_ptr(mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "unexpectedly received a rack response"));
         goto GotException;
     }
-
-    /* send the response (unless req is already closed) */
-    if (generator->req == NULL)
-        goto Exit;
 
     send_response(generator, status, output, is_delegate);
     goto Exit;
