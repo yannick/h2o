@@ -729,6 +729,9 @@ static void send_response(h2o_mruby_generator_t *generator, mrb_int status, mrb_
     /* use fiber in case we need to call #each */
     if (!mrb_nil_p(body)) {
         mrb_value receiver = h2o_mruby_send_chunked_init(generator, body);
+        if (mrb->exc) {
+            goto GotException;
+        }
         if (!mrb_nil_p(receiver)) {
             mrb_value input = mrb_ary_new_capa(mrb, 2);
             mrb_ary_set(mrb, input, 0, body);
