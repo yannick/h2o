@@ -184,11 +184,11 @@ Exit:
     return proc;
 }
 
-static h2o_iovec_t convert_header_name_to_env(h2o_mem_pool_t *pool, const char *name, size_t len)
-{
 #define KEY_PREFIX "HTTP_"
 #define KEY_PREFIX_LEN (sizeof(KEY_PREFIX) - 1)
 
+static h2o_iovec_t convert_header_name_to_env(h2o_mem_pool_t *pool, const char *name, size_t len)
+{
     h2o_iovec_t ret;
 
     ret.len = len + KEY_PREFIX_LEN;
@@ -201,10 +201,28 @@ static h2o_iovec_t convert_header_name_to_env(h2o_mem_pool_t *pool, const char *
         *d++ = *name == '-' ? '_' : h2o_toupper(*name);
 
     return ret;
+}
+
+static h2o_iovec_t convert_env_to_header_name(h2o_mem_pool_t *pool, const char *name, size_t len)
+{
+    if (len >= KEY_PREFIX_LEN && h2o_memis(name, KEY_PREFIX_LEN, KEY_PREFIX, KEY_PREFIX_LEN)) {
+        return h2o_iovec_init(NULL, 0);
+    }
+
+    h2o_iovec_t ret;
+
+    ret.len = len - KEY_PREFIX_LEN;
+    ret.base = h2o_mem_alloc_pool(pool, ret.len);
+
+    char *d = ret.base;
+    for (; len != 0; ++name, --len)
+        *d++ = *name == '_' ? '-' : h2o_tolower(*name);
+
+    return ret;
+}
 
 #undef KEY_PREFIX
 #undef KEY_PREFIX_LEN
-}
 
 static mrb_value build_constants(mrb_state *mrb, const char *server_name, size_t server_name_len)
 {
@@ -836,11 +854,11 @@ static void ostream_send(h2o_ostream_t *_self, h2o_req_t *req, h2o_iovec_t *inbu
     mrb_gc_protect(mrb, receiver);
     self->receiver = mrb_nil_value();
 
-    mrb_value chunks = mrb_ary_new_capa(mrb, (mrb_int)inbufcnt);
+    mrb_value incoming_chunks = mrb_ary_new_capa(mrb, (mrb_int)inbufcnt);
     mrb_int i;
     for (i = 0; i < inbufcnt; ++i) {
         mrb_value chunk = mrb_str_new(mrb, inbufs[i].base, inbufs[i].len);
-        mrb_ary_set(mrb, chunks, i, chunk);
+        mrb_ary_set(mrb, incoming_chunks, i, chunk);
     }
     mrb_value finished = mrb_bool_value((mrb_bool)! h2o_send_state_is_in_progress(state));
 
@@ -865,12 +883,40 @@ static void ostream_send(h2o_ostream_t *_self, h2o_req_t *req, h2o_iovec_t *inbu
         /* TODO: fast path */
         input = mrb_nil_value();
     }
-    mrb_funcall(mrb, self->ref, "_push_chunks", 2, chunks, finished);
-    h2o_mruby_assert(mrb); // TODO: assert?
+    mrb_funcall(mrb, self->ref, "_push_chunks", 2, incoming_chunks, finished);
+    h2o_mruby_assert(mrb);
 
     h2o_mruby_run_fiber(self->ctx, receiver, input, NULL);
 
     mrb_gc_arena_restore(mrb, gc_arena);
+}
+
+static int handle_request_header(h2o_mruby_shared_context_t *shared_ctx, h2o_iovec_t name, h2o_iovec_t value, void *_req)
+{
+    h2o_req_t *req = _req;
+    const h2o_token_t *token;
+
+    /* convert env key to header name (lower case) */
+    name = convert_env_to_header_name(&req->pool, name.base, name.len);
+    if (name.base == NULL)
+        return 0;
+
+    if ((token = h2o_lookup_token(name.base, name.len)) != NULL) {
+        if (token == H2O_TOKEN_TRANSFER_ENCODING) {
+            /* skip */
+        } else {
+            if (token == H2O_TOKEN_CONTENT_LENGTH) {
+                /* TODO: truncate body? */
+            }
+            value = h2o_strdup(&req->pool, value.base, value.len);
+            h2o_add_header(&req->pool, &req->headers, token, NULL, value.base, value.len);
+        }
+    } else {
+        value = h2o_strdup(&req->pool, value.base, value.len);
+        h2o_add_header_by_str(&req->pool, &req->headers, name.base, name.len, 0, NULL, value.base, value.len);
+    }
+
+    return 0;
 }
 
 static mrb_value invoke_app_callback(h2o_mruby_context_t *ctx, mrb_value receiver, mrb_value args, int *run_again)
@@ -903,6 +949,55 @@ static mrb_value invoke_app_callback(h2o_mruby_context_t *ctx, mrb_value receive
     // TODO: rewrite generator->req using env
     // NOTE: preserve headers and others, like errordoc?
     mrb_value env = mrb_ary_entry(args, 0);
+    if (! mrb_hash_p(env)) {
+        *run_again = 1;
+        return mrb_exc_new_str_lit(mrb, E_ARGUMENT_ERROR, "env must be a hash");
+    }
+
+#define RETRIEVE_ENV(key, v) do { \
+    v = mrb_hash_get(mrb, env, mrb_ary_entry(ctx->shared->constants, H2O_MRUBY_LIT_ ## key)); \
+    if (mrb_nil_p(v)) { \
+        *run_again = 1; \
+        return mrb_exc_new_str_lit(mrb, E_RUNTIME_ERROR, "mandatory env variable '" #key "' is missing"); \
+    } \
+    v = h2o_mruby_to_str(mrb, v); \
+} while (0)
+
+    h2o_url_t url_parsed;
+    mrb_value scheme, method, server_addr, server_port, script_name, path_info, query_string;
+    RETRIEVE_ENV(RACK_URL_SCHEME, scheme);
+    RETRIEVE_ENV(REQUEST_METHOD, method);
+    RETRIEVE_ENV(SERVER_ADDR, server_addr);
+    RETRIEVE_ENV(SERVER_PORT, server_port);
+    RETRIEVE_ENV(SCRIPT_NAME, script_name);
+    RETRIEVE_ENV(PATH_INFO, path_info);
+    RETRIEVE_ENV(QUERY_STRING, query_string);
+
+    mrb_value url = scheme;
+    mrb_str_concat(mrb, url, mrb_str_new_lit(mrb, "://"));
+    mrb_str_concat(mrb, url, server_addr);
+    mrb_str_concat(mrb, url, mrb_str_new_lit(mrb, ":"));
+    mrb_str_concat(mrb, url, server_port);
+    mrb_str_concat(mrb, url, script_name);
+    mrb_str_concat(mrb, url, path_info);
+    if (RSTRING_LEN(query_string) != 0) {
+        mrb_str_concat(mrb, url, mrb_str_new_lit(mrb, "?"));
+        mrb_str_concat(mrb, url, query_string);
+    }
+    if (h2o_url_parse(RSTRING_PTR(url), RSTRING_LEN(url), &url_parsed) != 0) {
+        *run_again = 1;
+        /* TODO is there any other way to show better error message? */
+        return mrb_exc_new_str_lit(mrb, E_ARGUMENT_ERROR, "env variable contains invalid values");
+    }
+    req->scheme = url_parsed.scheme;
+    req->method = h2o_strdup(&req->pool, RSTRING_PTR(method), RSTRING_LEN(method));
+    req->authority = url_parsed.authority;
+    req->path = url_parsed.path;
+    req->path_normalized = h2o_url_normalize_path(&req->pool, req->path.base, req->path.len, &req->query_at, &req->norm_indexes);
+
+    /* TODO preseve original headers? */
+    req->headers = (h2o_headers_t){NULL};
+    h2o_mruby_iterate_headers(ctx->shared, env, handle_request_header, req);
 
 
     if (mrb_bool(reprocess)) {
